@@ -9,18 +9,18 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <errno.h>
+#include <errno.h> 
 
 void * realloc_(void * c, size_t size) {
     void * temp = realloc(c, size);
     if (temp == NULL) {
-        free(c);
+        free(c); 
         return NULL;
     }
     c = temp;
     return c;
 }
-
+// custom getline function, reads a line from stdin and stores it in a dynamically allocated string
 char* getlineself() {
     int buf_size = 10;
     char* buf = (char *) malloc(buf_size * sizeof(char));
@@ -44,7 +44,7 @@ char* getlineself() {
     buf[i] = '\0';
     return buf;
 }
-
+// function to check if a line contains only spaces and nothing else
 int only_spaces(char* c) {
     int len = strlen(c);
     for (int i = 0; i < len; i++) {
@@ -53,7 +53,8 @@ int only_spaces(char* c) {
     }
     return 1;
 }
-// "hello world"
+
+// extracts an argument/token from the command line that is wrapped in quotes
 char* parse_token(int * i, char* c, int clen) {
     int j = 0;
     int token_len = 8;
@@ -95,7 +96,7 @@ char* parse_token(int * i, char* c, int clen) {
     token = realloc_(token, (j+1) * sizeof(char));
     return token;
 }
-
+// this function splits the input line into argv tokens, and also modifies argc to keep track of the number of arguments
 char** parse_line(char* c, int * argc) {
     char** argv;
     int len = strlen(c);
@@ -143,14 +144,17 @@ int main() {
         if (argv == NULL) {
             printf("parse error: unterminated quote \n");
             free(input);
-            free(argv);
+            //free(argv); since argv is NULL this line is not needed
             continue;
         }
         
         int runchild = 1;
-
+        //need to free argv here because it will break out of the while loop
         if (strcmp(argv[0], "exit") == 0) {
             free(input);
+            for (int i = 0; i < argc; i++) {
+                free(argv[i]);
+            }
             free(argv);
             break;
         }
@@ -163,15 +167,19 @@ int main() {
                 chdir(getenv("HOME"));
         }
         if (runchild) {
-        if (fork() == 0) { // we are in child
-            int status = execvp(argv[0], argv);
-            if (status == -1) {
-                printf("command went wrong \n");
+            pid_t pid;
+            pid = fork();
+            if (pid < 0) {
+                perror("fork Failed");
             }
-        }
-        else {
-            wait(NULL); // prevent zombie processes
-        }
+            else if (pid == 0) {
+                execvp(argv[0], argv);
+                perror("execvp Failed"); // only returns if execvp fails, then we exit out of the child
+                _exit(127); // _exit instead of exit so that buffers are not flushed
+            }
+            else {
+                wait(NULL); // prevent zombie processes
+            }
     }
         for (int i = 0; i < argc; i++)
             free(argv[i]);
